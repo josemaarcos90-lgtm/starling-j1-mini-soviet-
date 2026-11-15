@@ -36,6 +36,8 @@ permissions:
 env:
   RELEASE_BUILD: ${{ (github.repository == 'starling-client/starling' && (startsWith(github.ref, 'refs/tags/v') || inputs.release_key)) && 'true' || 'false' }}
   PREVIEW: ${{ !(github.repository == 'starling-client/starling' && (startsWith(github.ref, 'refs/tags/v') || inputs.release_key)) && 'true' || 'false' }}
+  # A fork's builds are meant to be played, so they use the fast profile too (quick is opt-level 1).
+  FAST_BUILD: ${{ (github.repository != 'starling-client/starling' || startsWith(github.ref, 'refs/tags/v') || inputs.release_key) && 'true' || 'false' }}
 concurrency:
   group: android-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -88,7 +90,7 @@ jobs:
       # The fast profile's 16 codegen units of the game's crate took more than the runner's 16 GB, and the runner
       # went: swap, on the large temporary disk where there is one, and three units at a time instead of four.
       - name: Make room for the release build
-        if: env.RELEASE_BUILD == 'true'
+        if: env.RELEASE_BUILD == 'true' || env.FAST_BUILD == 'true'
         run: |
           sudo swapoff -a || true
           where=/mnt size=20G
@@ -116,8 +118,8 @@ jobs:
           HORIZON_ANDROID_STORE_PASSWORD: ${{ secrets.STARLING_STORE_PASSWORD }}
           HORIZON_ANDROID_KEY_PASSWORD: ${{ secrets.STARLING_KEY_PASSWORD }}
           MODS: ${{ inputs.native_mods }}
-          PROFILE: ${{ env.RELEASE_BUILD == 'true' && 'fast' || 'quick' }}
-          VARIANT: ${{ env.PREVIEW == 'true' && '--preview' || '' }}
+          PROFILE: ${{ env.FAST_BUILD == 'true' && 'fast' || 'quick' }}
+          VARIANT: ${{ env.PREVIEW == 'true' && (github.repository == 'starling-client/starling' && '--preview' || '--soviet') || '' }}
         # Releases with the fast profile (fewer codegen units: a little quicker in game). With native mods, the APK
         # native_build.sh makes, named after them.
         run: |
