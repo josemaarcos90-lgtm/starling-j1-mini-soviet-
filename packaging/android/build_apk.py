@@ -41,7 +41,13 @@ LABEL = "Starling"
 # StarlingPreview) and its own sign-in and game files. Preview is what starling-client/starling's
 # CI builds, signed with that repository's test key: the release key stays out of it.
 DEV_SUFFIX = ".dev"
-VARIANTS = {"dev": (DEV_SUFFIX, " Dev"), "preview": (".preview", " Preview")}
+# --soviet: this fork's own app ("Starling Soviet Edition ☠️"), beside the official release and
+# beside Preview, with its own StarlingSoviet folder.
+VARIANTS = {
+    "dev": (DEV_SUFFIX, " Dev"),
+    "preview": (".preview", " Preview"),
+    "soviet": (".soviet", " Soviet Edition ☠️"),
+}
 VERSION_NAME = "0.8.0"
 VERSION_CODE = 13
 MIN_SDK = 26  # AAudio (cpal)
@@ -321,6 +327,10 @@ def main():
         "--preview", action="store_true",
         help=f"Starling Preview ({APPLICATION_ID}{VARIANTS['preview'][0]}), the organisation's CI build",
     )
+    parser.add_argument(
+        "--soviet", action="store_true",
+        help=f"Starling Soviet Edition ({APPLICATION_ID}{VARIANTS['soviet'][0]}), this fork's own app",
+    )
     parser.add_argument("--abi", choices=TARGETS, default=ABI, help="Android ABI (default: arm64-v8a)")
     args = parser.parse_args()
     triple, _, _ = TARGETS[args.abi]
@@ -354,7 +364,9 @@ def main():
         # builds (--library-only) don't need one.
         shutil.copyfile(built, out / f"lib{LIBRARY}-symbols.so")
 
-    variant = "dev" if args.dev else "preview" if args.preview else None
+    variant = (
+        "dev" if args.dev else "preview" if args.preview else "soviet" if args.soviet else None
+    )
     link_resources(tool(build_tools, "aapt2"), android_jar, out, assets(out), variant, args.abi)
     dex = compile_java(build_tools, android_jar, out)
     libraries = build_launchers(ndk, out, args.abi)
