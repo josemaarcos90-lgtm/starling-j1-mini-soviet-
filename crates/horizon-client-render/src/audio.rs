@@ -883,6 +883,8 @@ impl Audio {
         } else {
             Err("no output on a dedicated server".into())
         };
+        // Without the audio feature the stream type is uninhabited, so clippy sees `Ok` as unreachable.
+        #[allow(unreachable_code)]
         let (stream, live) = match opened {
             Ok(v) => (Some(v), true),
             Err(e) => {

@@ -1152,7 +1152,9 @@ pub fn apply_mobile_defaults(tier: crate::system_stats::Tier, s: &mut crate::set
     } else {
         FarDetail::Reduced
     };
-    if tier == Tier::Low {
+    // Soviet Edition: every phone below the top tier starts in potato mode. A Mid phone with a
+    // Mali-G68 (Galaxy A16 5G) is GPU-bound at 100% with the Mid defaults.
+    if tier != Tier::High {
         apply_potato(s);
     }
 }
@@ -1193,7 +1195,7 @@ mod tests {
     }
 
     #[test]
-    fn the_lowest_tier_gets_the_potato_settings() {
+    fn phones_below_the_top_tier_get_the_potato_settings() {
         use crate::system_stats::Tier;
         let mut low = crate::settings::Settings::default();
         apply_mobile_defaults(Tier::Low, &mut low);
@@ -1205,8 +1207,12 @@ mod tests {
         assert_eq!(low.horizon.leaf_culling, LeafCullingMode::SolidAggressive);
         // Gameplay settings are untouched by it.
         assert!(low.auto_jump);
-        // Only the lowest tier gets it.
-        assert!(mid.horizon.weather && mid.render_distance == 8);
+        // Mid gets it too, the top tier keeps its own defaults.
+        assert_eq!(mid.render_distance, 4);
+        assert!(!mid.horizon.weather);
+        let mut high = crate::settings::Settings::default();
+        apply_mobile_defaults(Tier::High, &mut high);
+        assert!(high.horizon.weather && high.render_distance == 10);
     }
 
     #[test]
