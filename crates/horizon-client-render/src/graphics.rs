@@ -1068,6 +1068,43 @@ pub fn apply_preset(preset: Preset, s: &mut crate::settings::Settings) {
     g.weather = true;
 }
 
+/// The cheapest settings that still play: for phones at the bottom of the range. Everything it
+/// turns down is look or load, never a rule of the game: short render distance, half the
+/// resolution, no clouds, rain, animated textures or entity shadows, opaque leaves, one
+/// mip-less atlas, and per-frame caps on mesh work so a burst of chunks does not freeze a frame.
+/// `workers` and the upload caps are guesses for a 4-core phone, to be measured.
+pub fn apply_potato(s: &mut crate::settings::Settings) {
+    s.render_distance = 4;
+    // Vanilla's lowest simulation distance.
+    s.simulation_distance = 5;
+    s.clouds = "false".into();
+    // 2 = minimal particles.
+    s.particles = 2;
+    s.entity_shadows = false;
+    s.biome_blend = 0;
+    s.mipmap_levels = 0;
+    s.entity_distance = 0.5;
+    s.cutout_leaves = false;
+    s.weather_radius = 3;
+    let g = &mut s.horizon;
+    g.resolution_scale = 50;
+    g.animated_textures = false;
+    g.weather = false;
+    g.far_detail = FarDetail::Reduced;
+    // LOD tiles draw more, not less (docs/starling-performance.md).
+    g.lod_distance = 0;
+    g.leaf_culling = LeafCullingMode::SolidAggressive;
+    g.fxaa = false;
+    g.taa = false;
+    g.frame_generation = FrameGeneration::Off;
+    g.hdr = false;
+    g.overlay = Overlay::Off;
+    // Fewer mesh workers than cores, so they do not fight the render and server threads.
+    g.workers = 2;
+    g.chunk_updates = 2;
+    g.upload_budget_kib = 2048;
+}
+
 /// A phone's first start: settings for its tier instead of the desktop's (measured on a
 /// Snapdragon 8 Gen 2 at 3200x1440; slower tiers scaled down from it).
 ///
@@ -1115,6 +1152,9 @@ pub fn apply_mobile_defaults(tier: crate::system_stats::Tier, s: &mut crate::set
     } else {
         FarDetail::Reduced
     };
+    if tier == Tier::Low {
+        apply_potato(s);
+    }
 }
 
 #[cfg(test)]
@@ -1150,6 +1190,23 @@ mod tests {
         let back = crate::settings::Settings::from_file(file);
         assert_eq!(back.render_distance, 10);
         assert!(back.auto_jump);
+    }
+
+    #[test]
+    fn the_lowest_tier_gets_the_potato_settings() {
+        use crate::system_stats::Tier;
+        let mut low = crate::settings::Settings::default();
+        apply_mobile_defaults(Tier::Low, &mut low);
+        let mut mid = crate::settings::Settings::default();
+        apply_mobile_defaults(Tier::Mid, &mut mid);
+        assert_eq!(low.render_distance, 4);
+        assert_eq!(low.horizon.resolution_scale, 50);
+        assert!(!low.horizon.weather && !low.horizon.animated_textures);
+        assert_eq!(low.horizon.leaf_culling, LeafCullingMode::SolidAggressive);
+        // Gameplay settings are untouched by it.
+        assert!(low.auto_jump);
+        // Only the lowest tier gets it.
+        assert!(mid.horizon.weather && mid.render_distance == 8);
     }
 
     #[test]
